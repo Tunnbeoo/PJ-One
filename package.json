@@ -1,0 +1,13 @@
+{
+  "name": "storeonline",
+  "version": "1.0.0",
+  "description": "A simple online store project",
+  "main": "index.php",
+  "scripts": {
+    "dev": "php -S localhost:3000",
+    "start": "php -S localhost:3000"
+  },
+  "keywords": ["online", "store", "php"],
+  "author": "Your Name",
+  "license": "ISC"
+}
