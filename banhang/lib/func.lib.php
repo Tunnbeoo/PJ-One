@@ -1,479 +1,786 @@
-<?php //*********************************************************************************************************
-//***************************************** Check PHP Version *********************************************
-//echo 'Current PHP version: ' . phpversion();
-if (phpversion()< "4.1.0") {
-	$_GET = $HTTP_GET_VARS;
-	$_POST = $HTTP_POST_VARS;
-	$_SERVER = $HTTP_SERVER_VARS;
+<?php
+//*********************************************************************************************************
+//***************************************** Kiểm Tra Phiên Bản PHP *********************************************
+//echo 'Phiên bản PHP hiện tại: ' . phpversion();
+if (phpversion() < "4.1.0") {
+    $_GET = $HTTP_GET_VARS;
+    $_POST = $HTTP_POST_VARS;
+    $_SERVER = $HTTP_SERVER_VARS;
 }
 //*********************************************************************************************************
-//************************************** Get email config *************************************************
-$emailConfigRecord = getRecord("tbl_config","code='adminEmail'");
+//************************************** Lấy cấu hình email *************************************************
+$emailConfigRecord = getRecord("tbl_config", "code='adminEmail'");
 $adminEmail = $emailConfigRecord['detail'];
 //*********************************************************************************************************
-//*********************************** Get currency unit config ********************************************
-$currencyUnitConfigRecord = getRecord("tbl_config","code='currencyUnit'");
+//*********************************** Lấy cấu hình đơn vị tiền tệ ********************************************
+$currencyUnitConfigRecord = getRecord("tbl_config", "code='currencyUnit'");
 $currencyUnit = $currencyUnitConfigRecord['detail'];
 //*********************************************************************************************************
-//************************************** Public Key Interface *********************************************
-function mo ($g, $l) {
-	return $g - ($l * floor ($g/$l));
+//************************************** Hàm mã hóa khóa công khai *********************************************
+function mo($g, $l) {
+    return $g - ($l * floor($g / $l));
 }
-function powmod ($base, $exp, $modulus){
-	$accum = 1;
-	$i = 0;
-	$basepow2 = $base;
-	while (($exp >> $i)>0) {
-		if ((($exp >> $i) & 1) == 1) {
-			$accum = mo(($accum * $basepow2) , $modulus);
-		}
-		$basepow2 = mo(($basepow2 * $basepow2) , $modulus);
-		$i++;
-	}
-	return $accum;
-}
-function PKI_Encrypt ($m, $e, $n){
-	$asci = array ();
-	for ($i=0; $i<strlen($m); $i+=3) {
-		$tmpasci="1";
-		for ($h=0; $h<3; $h++) {
-			if ($i+$h <strlen($m)) {
-				$tmpstr = ord (substr ($m, $i+$h, 1)) - 30;
-				if (strlen($tmpstr) < 2) {
-					$tmpstr ="0".$tmpstr;
-				}
-			} else {
-				break;
-			}
-			$tmpasci .=$tmpstr;
-		}
-		array_push($asci, $tmpasci."1");
-	}
-	$coded = '';
-	for ($k=0; $k< count ($asci); $k++) {
-		$resultmod = powmod($asci[$k], $e, $n);
-		$coded .= $resultmod." ";
-	}
-	return trim($coded);
-}
-function PKI_Decrypt ($c, $d, $n) {
-	$decryptarray = split(" ", $c);
-	for ($u=0; $u<count ($decryptarray); $u++) {
-		if ($decryptarray[$u] == "") {
-			array_splice($decryptarray, $u, 1);
-		}
-	}
-	for ($u=0; $u< count($decryptarray); $u++) {
-		$resultmod = powmod($decryptarray[$u], $d, $n);
-		$deencrypt.= substr ($resultmod,1,strlen($resultmod)-2);
-	}
-	for ($u=0; $u<strlen($deencrypt); $u+=2) {
-		$resultd .= chr(substr ($deencrypt, $u, 2) + 30);
-	}
-	return $resultd;
-}
-//************************************************************************************************************
-function killInjection($str){//HAM NAY LOAI BO CAC LENH INJECTION
-	$bad = array("\\","=",":");
-	$good = str_replace($bad,"", $str);
-	return $good;
-}
-//************************************************************************************************************
-//************************************************* PAGING ***************************************************
-function countPages($total, $n){
-	if($total%$n==0) return (int)($total/$n);
-	return (int)($total/$n)+1;
-}
-function createPage($total,$link,$nitem,$itemcurrent,$step=10){
-	if($total<1){return false;}
-	global $conn;
-	$ret="";
-	$param="";
-	$pages = countPages($total,$nitem);
-	if ($itemcurrent>0) $ret.='<a title="&#272;&#7847;u ti&ecirc;n" href="'.$link.'0" class="lslink">[&lt;&lt;]</a> ';
-	if ($itemcurrent>1) $ret.='<a title="V&#7873; tr&#432;&#7899;c" href="'.$link.($itemcurrent-1).'" class="lslink">[&lt;]</a> ';
-	$from=($itemcurrent-$step>0?$itemcurrent-$step:0);
-	$to=($itemcurrent+$step<$pages?$itemcurrent+$step:$pages);
-	for ($i=$from;$i<$to;$i++){
-		if ($i!=$itemcurrent) $ret.='<a href="'.$link.$i.'" class="lslink">'.($i+1).'</a> ';
-		else $ret.='<b>'.($i+1).'</b> ';
-	}
-	if (($itemcurrent<$pages-2) && ($pages>1)) $ret.='<a title="Ti&#7871;p theo" href="'.$link.($itemcurrent+1).'">[&gt;]</a> ';
-	if ($itemcurrent<$pages-1) $ret.='<a title="Cu&#7889;i c&ugrave;ng" href="'.$link.($pages-1).'">[&gt;&gt;]</a>'; 
-	return $ret;
-}
-//************************************************************************************************************
-//********************************************** SORT ********************************************************
-function getLinkSort($order){
-	$direction="";
-	if ($_REQUEST['direction']==''||$_REQUEST['direction']!='0')
-		$direction="0";
-	else
-		$direction="1";
 
-	return "./?act=".$_REQUEST['act']."&cat=".$_REQUEST['cat']."&page=".$_REQUEST['page']."&sortby=".$order."&direction=".$direction;
+function powmod($base, $exp, $modulus) {
+    $accum = 1;
+    $i = 0;
+    $basepow2 = $base;
+    while (($exp >> $i) > 0) {
+        if ((($exp >> $i) & 1) == 1) {
+            $accum = mo(($accum * $basepow2), $modulus);
+        }
+        $basepow2 = mo(($basepow2 * $basepow2), $modulus);
+        $i++;
+    }
+    return $accum;
 }
+
+function PKI_Encrypt($m, $e, $n) {
+    $asci = array();
+    for ($i = 0; $i < strlen($m); $i += 3) {
+        $tmpasci = "1";
+        for ($h = 0; $h < 3; $h++) {
+            if ($i + $h < strlen($m)) {
+                $tmpstr = ord(substr($m, $i + $h, 1)) - 30;
+                if (strlen($tmpstr) < 2) {
+                    $tmpstr = "0" . $tmpstr;
+                }
+            } else {
+                break;
+            }
+            $tmpasci .= $tmpstr;
+        }
+        array_push($asci, $tmpasci . "1");
+    }
+    $coded = '';
+    for ($k = 0; $k < count($asci); $k++) {
+        $resultmod = powmod($asci[$k], $e, $n);
+        $coded .= $resultmod . " ";
+    }
+    return trim($coded);
+}
+
+function PKI_Decrypt($c, $d, $n) {
+    $decryptarray = explode(" ", $c);
+    foreach ($decryptarray as $key => $value) {
+        if ($value == "") {
+            unset($decryptarray[$key]);
+        }
+    }
+    $deencrypt = '';
+    foreach ($decryptarray as $value) {
+        $resultmod = powmod($value, $d, $n);
+        $deencrypt .= substr($resultmod, 1, strlen($resultmod) - 2);
+    }
+    $resultd = '';
+    for ($u = 0; $u < strlen($deencrypt); $u += 2) {
+        $resultd .= chr(substr($deencrypt, $u, 2) + 30);
+    }
+    return $resultd;
+}
+
+//************************************************************************************************************
+function killInjection($str) {
+    $bad = array("\\", "=", ":");
+    $good = str_replace($bad, "", $str);
+    return $good;
+}
+
+//************************************************************************************************************
+//************************************************* PHÂN TRANG ***************************************************
+function countPages($total, $n) {
+    if ($total % $n == 0) return (int)($total / $n);
+    return (int)($total / $n) + 1;
+}
+
+function createPage($total, $link, $nitem, $itemcurrent, $step = 10) {
+    if ($total < 1) {
+        return false;
+    }
+    global $conn;
+    $ret = "";
+    $pages = countPages($total, $nitem);
+    if ($itemcurrent > 0) {
+        $ret .= '<a title="Đầu tiên" href="' . $link . '0" class="lslink">[&lt;&lt;]</a> ';
+    }
+    if ($itemcurrent > 1) {
+		$ret .= '<a title="Về trước" href="' . $link . ($itemcurrent - 1) . '" class="lslink">[&lt;]</a> ';
+    }
+
+    $from = ($itemcurrent - $step > 0 ? $itemcurrent - $step : 0);
+    $to = ($itemcurrent + $step < $pages ? $itemcurrent + $step : $pages);
+    for ($i = $from; $i < $to; $i++) {
+        if ($i != $itemcurrent) {
+            $ret .= '<a href="' . $link . $i . '" class="lslink">' . ($i + 1) . '</a> ';
+        } else {
+            $ret .= '<b>' . ($i + 1) . '</b> ';
+        }
+    }
+
+    if (($itemcurrent < $pages - 2) && ($pages > 1)) {
+        $ret .= '<a title="Tiếp theo" href="' . $link . ($itemcurrent + 1) . '">[&gt;]</a> ';
+    }
+    if ($itemcurrent < $pages - 1) {
+        $ret .= '<a title="Cuối cùng" href="' . $link . ($pages - 1) . '" class="lslink">[&gt;&gt;]</a>';
+    }
+
+    return $ret;
+}
+
+//************************************************************************************************************
+//********************************************** SẮP XẾP ********************************************************
+function getLinkSort($order) {
+    $direction = ($_REQUEST['direction'] == '' || $_REQUEST['direction'] != '0') ? "0" : "1";
+    return "./?act=" . $_REQUEST['act'] . "&cat=" . $_REQUEST['cat'] . "&page=" . $_REQUEST['page'] . "&sortby=" . $order . "&direction=" . $direction;
+}
+
 //************************************************************************************************************
 //************************************** file : upload *******************************************************
-function getFileExtention($filename){  
+function getFileExtension($filename) {  
     return strrchr($filename, ".");
 }
-function checkUpload($f,$ext="",$maxsize=0,$req=0){
-	$fname=strtolower(basename($f['name']));
-	$ftemp=$f["tmp_name"];
-	$fsize=$f["size"];
-	$fext=getFileExtention($fname);
-	if($fsize==0){
-		if ($req!=0) return "B&#7841;n ch&#432;a ch&#7885;n file !";
-		return "";
-	}else{
-		if ($ext!="") if (strpos($ext, $fext)===false) 
-			return "T&#7853;p tin kh&ocirc;ng &#273;&uacute;ng &#273;&#7883;nh d&#7841;ng : $fname";
-		if ($maxsize>0) if ($fsize > $maxsize) 
-			return "K&iacute;ch th&#432;&#7899;c h&igrave;nh ph&#7843;i nh&#7887; h&#417;n ".$maxsize." byte";
-	}
-	return "";
+
+function checkUpload($f, $ext = "", $maxsize = 0, $req = 0) {
+    $fname = strtolower(basename($f['name']));
+    $ftemp = $f["tmp_name"];
+    $fsize = $f["size"];
+    $fext = getFileExtension($fname);
+    if ($fsize == 0) {
+        if ($req != 0) return "Bạn chưa chọn file!";
+        return "";
+    } else {
+        if ($ext != "" && strpos($ext, $fext) === false) 
+            return "Tập tin không đúng định dạng: $fname";
+        if ($maxsize > 0 && $fsize > $maxsize) 
+            return "Kích thước hình phải nhỏ hơn " . $maxsize . " byte";
+    }
+    return "";
 }
-function makeUpload($f,$newfile){
-	if (move_uploaded_file($f["tmp_name"], $newfile))	return $newfile;
-	return false;
+
+function makeUpload($f, $newfile) {
+    return move_uploaded_file($f["tmp_name"], $newfile) ? $newfile : false;
 }
+
 //************************************************************************************************************
-function getRecord($table, $where='1=1'){
+function getRecord($table, $where = '1=1') {
     global $conn;
     if ($table == '') return false;
-	$result = mysql_query("select * from $table where $where limit 1",$conn);
-	return @mysql_fetch_assoc($result);
-}
-function countRecord($table,$where=""){
-	global $conn;
-    if ($table=="") return false;
-    if ($where=="") $where="1=1";
-	$result = mysql_query("select count(*) as cnt from $table where $where",$conn);
-	$row = @mysql_fetch_assoc($result);
-	return $row['cnt'];
-}
-function dateFormat($dateField, $lang='vn'){
-	if($dateField==''){return false;}
-	$arrVN = array("Chủ nhật","Thứ Hai","Thứ Ba","Thứ tư","Thứ; năm","Thứ sáu","Thứ bảy");
-	$arrEN = array("Sunday","Monday","Tueday","Wednesday","Thuday","Friday","Satuday");
-	$date = strtotime($dateField);
-	
-	$arr = $lang=='vn'?$arrVN:$arrEN;
-	
-	return $arr[date('w',$date)].', '.date('d/m/Y, H:i',$date);
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $where LIMIT 1");
+    return mysqli_fetch_assoc($result);
 }
 
-function getArrayCategory($table, $catid="", $split="="){
+function countRecord($table, $where = "") {
+    global $conn;
+    if ($table == "") return false;
+    if ($where == "") $where = "1=1";
+    $result = mysqli_query($conn, "SELECT COUNT(*) AS cnt FROM $table WHERE $where");
+    $row = mysqli_fetch_assoc($result);
+    return $row['cnt'];
+}
+
+function dateFormat($dateField, $lang = 'vn') {
+    if ($dateField == '') return false;
+    $arrVN = array("Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy");
+    $arrEN = array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
+    $date = strtotime($dateField);
+    
+    $arr = $lang == 'vn' ? $arrVN : $arrEN;
+    
+    return $arr[date('w', $date)] . ', ' . date('d/m/Y, H:i', $date);
+}
+
+function getArrayCategory($table, $catid = "", $split = "=") {
     global $conn;
     $hide = "status=0";
-    if (isset($_SESSION['log'])) $hide="1=1";
-    $ret = array();
-    if ($catid=="") $catid=2;
-	$result = @mysql_query("select * from $table where $hide and parent=$catid",$conn);
-	while($row=mysql_fetch_assoc($result)){
-		$ret[] = array($row['id'],($catid==1?"":$split).$row['name']);
-		$getsub = getArrayCategory($table, $row['id'], $split.$split);
-		foreach ($getsub as $sub)
-			$ret[]=array($sub[0],$sub[1]);
-	}
-	return $ret;
-}
-
-function getArrayCategoryChild($table, $catid="", $split="="){
-    global $conn;
-    $hide = "status=0";
-    if (isset($_SESSION['log'])) $hide="1=1";
-    $ret = array();
-    if ($catid=="") $catid=77;
-	$result = @mysql_query("select * from $table where $hide and parent=$catid",$conn);
-	while($row=mysql_fetch_assoc($result)){
-		$ret[] = array($row['id'],($catid==2?"":$split).$row['name']);
-		$getsub = getArrayCategory($table, $row['id'], $split.$split);
-		foreach ($getsub as $sub)
-			$ret[]=array($sub[0],$sub[1]);
-	}
-	return $ret;
-}
-
-function getArrayNews($table, $catid="", $split="="){
-    global $conn;
-    $hide = "status=0";
-    if (isset($_SESSION['log'])) $hide="1=1";
-    $ret = array();
-    if ($catid=="") $catid=2;
-	$result = mysql_query("select * from $table where $hide and parent=$catid",$conn);
-	while($row=mysql_fetch_assoc($result)){
-		$ret[] = array($row['id'],($catid==1?"":$split).$row['name']);
-		$getsub = getArrayCategory($table, $row['id'], $split.$split);
-		foreach ($getsub as $sub)
-			$ret[]=array($sub[0],$sub[1]);
-	}
-	return $ret;
-}
-
-function getArrayCombo($table, $valueField, $textField, $where=""){
-	global $conn;
+    if (isset($_SESSION['log'])) $hide = "1=1";
 	$ret = array();
-	$hide = "status=0";
-	$where = $where!="" ? $where : "1=1";
-	$result = mysql_query("select $valueField,$textField from $table where $hide and $where",$conn);
-	while($row=mysql_fetch_assoc($result)){
-		$ret[] = array($row[$valueField],$row[$textField]);
-	}
-	return $ret;
-}
-function getArray($query){
-    global $conn;
-    	$result = mysql_query($query,$conn);
-	while($row=mysql_fetch_assoc($result)){
-		$ret[] = array($row['id'],($catid==0?"":$split).$row['name']);
-		$getsub = getArrayCategory($table, $row['id'], $split.'===');
-		foreach ($getsub as $sub)
-			$ret[]=array($sub[0],$sub[1]);
-	}
-	return $ret;
+    if ($catid == "") $catid = 2;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 1 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
 }
 
-function isHaveChild($table, $id){
-	global $conn;
-	$result = mysql_query("select * from $table where parent=$id",$conn);
-	$numRow = mysql_num_rows($result);
-	return $numRow > 0 ? true : false;
+function getArrayCategoryChild($table, $catid = "", $split = "=") {
+    global $conn;
+    $hide = "status=0";
+    if (isset($_SESSION['log'])) $hide = "1=1";
+    $ret = array();
+    if ($catid == "") $catid = 77;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 2 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
 }
+
+function getArrayNews($table, $catid = "", $split = "=") {
+    global $conn;
+    $hide = "status=0";
+    if (isset($_SESSION['log'])) $hide = "1=1";
+    $ret = array();
+    if ($catid == "") $catid = 2;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 1 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
+}
+
+function getArrayCombo($table, $valueField, $textField, $where = "") {
+    global $conn;
+    $ret = array();
+    $hide = "status=0";
+    $where = $where != "" ? $where : "1=1";
+    $result = mysqli_query($conn, "SELECT $valueField, $textField FROM $table WHERE $hide AND $where");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row[$valueField], $row[$textField]);
+    }
+    return $ret;
+}
+
+function getArray($query) {
+    global $conn;
+    $result = mysqli_query($conn, $query);
+    $ret = array();
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = $row;
+    }
+    return $ret;
+}
+
+function isHaveChild($table, $id) {
+    global $conn;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE parent=$id");
+    return mysqli_num_rows($result) > 0;
+}
+
 //************************************************************************************************************
 //****************************************** combo out HTML **************************************************
-function comboLanguage($name, $langSelected, $class){
-	global $arrLanguage;
-	$name = $name != '' ? $name : 'cmbLang';
-	$out = '';
-	$out .= '<select size="1" name="'.$name.'" class="'.$class.'">';
-	foreach ($arrLanguage as $lang){
-		if ($lang[0] == $langSelected)
-			$out .= '<option value="'.$lang[0].'" selected>'.$lang[1].'</option>';
-		else
-			$out .= '<option value="'.$lang[0].'">'.$lang[1].'</option>';
-	}
-	$out .= '</select>';
-	return $out;
+function comboLanguage($name, $langSelected, $class) {
+    global $arrLanguage;
+    $name = $name != '' ? $name : 'cmbLang';
+    $out = '<select size="1" name="' . $name . '" class="' . $class . '">';
+    foreach ($arrLanguage as $lang) {
+        $selected = $lang[0] == $langSelected ? 'selected' : '';
+        $out .= '<option value="' . $lang[0] . '" ' . $selected . '>' . $lang[1] . '</option>';
+    }
+    $out .= '</select>';
+    return $out;
 }
 
 // $name            : name of combobox
 // $arrSource  : function return array ; example : getListCategory(), getListNewsCategory()
 // $index           : paramater selected
-// $all             : $all==1 => show [Tat ca]
-function comboCategory($name, $arrSource, $class, $index, $all){
-	$name = $name != '' ? $name : 'cmbParent';
-	if(!$arrSource){return false;}
-	$out = '';
-	$out .= '<select size="1" name="'.$name.'" class="'.$class.'">';
-	$out .= $all==1 ? '<option value="">[Tất cả]</option>' : '';
-	$cats = $arrSource;
-	foreach ($cats as $cat){
-		$selected = $cat[0] == $index ? 'selected' : '';
-		$out .= '<option value="'.$cat[0].'" '.$selected.'>'.$cat[1].'</option>';
-	}
-	$out .= '</select>';
-	return $out;
+// $all             : $all==1 => show [Tất cả]
+function comboCategory($name, $arrSource, $class, $index, $all) {
+    $name = $name != '' ? $name : 'cmbParent';
+    if (!$arrSource)
+	    $ret = array();
+    if ($catid == "") $catid = 2;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 1 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
 }
 
-function comboSex($index, $lang="vn", $name="cmbSex", $class="textbox"){
-	$arrValue  = array('0','1');
-	$arrTextVN = array('Nam','Nữ');
-	$arrTextEN = array('Male','Female');
-	$arrText = $lang=="vn"?$arrTextVN:$arrTextEN;
-	$firstValue = $lang=="vn"?"[Chọn phái]":"[Select sex]";
-	$out = '';
-	$out .= '<select name="'.$name.'" id="'.$name.'" class="'.$class.'">';
-	$out .= '<option value="-1">'.$firstValue.'</option>';
-	for($i=0; $i<count($arrValue); $i++){
-		$selected = $arrValue[$i] == $index ? 'selected' : '';
-		$out .= '<option value="'.$arrValue[$i].'" '.$selected.'>'.$arrText[$i].'</option>';
-	}
-	$out .= '</select>';
-	return $out;
+// Hàm getArrayCategoryChild đã được sửa và chỉ định nghĩa một lần
+function getArrayCategoryChild($table, $catid = "", $split = "=") {
+    global $conn;
+    $hide = "status=0";
+    if (isset($_SESSION['log'])) $hide = "1=1";
+    $ret = array();
+    if ($catid == "") $catid = 77;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 2 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
 }
 
-function comboCity($index, $lang="vn", $name="cmbCity", $class="textbox"){
-	$arrValue  = array('Tp. Hồ Chí Minh','Hà Nội','An Giang','Bà Rịa- Vũng Tàu','Bắc Giang','Bắc Cạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Dương','Bình Phước','Bình Thuận','Bình Định','Cà Mau','Cần Thơ','Cao Bằng','Gia Lai','Hà Giang','Hà Nam','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Nước ngoài','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Địa Điểm Khác');
-	
-	$arrTextVN = array('Tp. Hồ Chí Minh','Hà Nội','An Giang','Bà Rịa- Vũng Tàu','Bắc Giang','Bắc Cạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Dương','Bình Phước','Bình Thuận','Bình Định','Cà Mau','Cần Thơ','Cao Bằng','Gia Lai','Hà Giang','Hà Nam','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Nước ngoài','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Địa Điểm Khác');
-	
-	$arrTextEN = array('Ho chi minh City','Ha Noi','An Giang','Ba Ria - Vung Tau','Bac Giang','Bac Can','Bac Lieu','Bac Ninh','Ben Tre','Binh Dương','Binh Phuoc','Binh Thuan','Binh Đinh','Ca Mau','Can Tho','Cao Bang','Gia Lai','Ha Giang','Ha Nam','Ha Tinh','Hai Duong','Hai Phong','Hau Giang','Hoa Binh','Hung Yen','Khanh Hoa','Kien Giang','Kon Tum','Lai Chau','Lam Đong','Lang Son','Lao Cai','Long An','Nam Đinh','Nghe An','Ninh Binh','Ninh Thuan','Foreign','Phu Tho','Phu Yen','Quang Binh','Quang Nam','Quang Ngai','Quang Ninh','Quang Tri','Soc Trang','Son La','Tay Ninh','Thai Binh','Thai Nguyen','Thanh Hoa','Thua Thien Hue','Tien Giang','Tra Vinh','Tuyen Quang','Vinh Long','Vinh Phuc','Yen Bai','Da Nang','Đak Lak','Đak Nong','Đien Bien','Đong Nai','Đong Thap','Locations');
-	
-	$arrText = $lang=="vn"?$arrTextVN:$arrTextEN;
-	$firstValue = $lang=="vn"?"[Chọn Tỉnh / Thành phố]":"[Select City]";
-	$out = '';
-	$out .= '<select name="'.$name.'" id="'.$name.'" class="'.$class.'">';
-	$out .= '<option value="-1">'.$firstValue.'</option>';
-	for($i=0; $i<count($arrValue); $i++){
-		$selected = $arrValue[$i] == $index ? 'selected' : '';
-		$out .= '<option value="'.$arrValue[$i].'" '.$selected.'>'.$arrText[$i].'</option>';
-	}
-	$out .= '</select>';
-	return $out;
+// Các hàm khác không bị ảnh hưởng
+
+function getArrayNews($table, $catid = "", $split = "=") {
+    global $conn;
+    $hide = "status=0";
+    if (isset($_SESSION['log'])) $hide = "1=1";
+    $ret = array();
+    if ($catid == "") $catid = 2;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE $hide AND parent=$catid");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row['id'], ($catid == 1 ? "" : $split) . $row['name']);
+        $getsub = getArrayCategory($table, $row['id'], $split . $split);
+        foreach ($getsub as $sub)
+            $ret[] = array($sub[0], $sub[1]);
+    }
+    return $ret;
 }
 
-//--------------------Country---------------------------------------------------------------
+function getArrayCombo($table, $valueField, $textField, $where = "") {
+    global $conn;
+    $ret = array();
+    $hide = "status=0";
+    $where = $where != "" ? $where : "1=1";
+    $result = mysqli_query($conn, "SELECT $valueField, $textField FROM $table WHERE $hide AND $where");
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = array($row[$valueField], $row[$textField]);
+    }
+    return $ret;
+}
 
-function comboCountry($index, $lang="vn", $name="cmbCountry", $class="textbox"){
-	$arrValue = array(
-		'Afghanistan','Albania','Algeria','American Samoa','Andorra','Angola','Anguilla','Antarctica','Antigua and Barbuda','Argentina','Armenia','Aruba','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus',
-		'Belgium','Belize','Benin','Bermuda','Bhutan','Bolivia','Bosnia and Herzegowina','Botswana','Bouvet Island','Brazil','British Indian Ocean Territory','British Virgin Islands','Brunei Darussalam','Bulgaria','Burkina Faso','Burundi','Cambodia','Cameroon','Canada','Cape Verde',
-		'Cayman Islands','Central African Republic','Chad','Chile','China','Christmas Island','Cocos (Keeling) Islands','Colombia','Comoros','Congo','Cook Islands','Costa Rica','Cote D\'ivoire','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica',
-		'Dominican Republic','East Timor','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Ethiopia','Falkland Islands (Malvinas)','Faroe Islands','Fiji','Finland','France','France, Metropolitan','French Guiana','French Polynesia','French Southern Territories','Gabon','Gambia',
-		'Georgia','Germany','Ghana','Gibraltar','Greece','Greenland','Grenada','Guadeloupe','Guam','Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Heard and McDonald Islands','Honduras','Hong Kong','Hungary','Iceland','India',
-		'Indonesia','Iraq','Ireland','Islamic Republic of Iran','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Korea','Korea, Republic of','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho',
-		'Liberia','Libyan Arab Jamahiriya','Liechtenstein','Lithuania','Luxembourg','Macau','Macedonia','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Martinique','Mauritania','Mauritius','Mayotte','Mexico','Micronesia',
-		'Moldova, Republic of','Monaco','Mongolia','Montserrat','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','Netherlands Antilles','New Caledonia','New Zealand','Nicaragua','Niger','Nigeria','Niue','Norfolk Island','Northern Mariana Islands',
-		'Norway','Oman','Pakistan','Palau','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Pitcairn','Poland','Portugal','Puerto Rico','Qatar','Reunion','Romania','Russian Federation','Rwanda','Saint Lucia','Samoa',
-		'San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia and Montenegro','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','Spain','Sri Lanka','St. Helena','St. Kitts and Nevis','St. Pierre and Miquelon','St. Vincent and the Grenadines','Sudan',
-		'Suriname','Svalbard and Jan Mayen Islands','Swaziland','Sweden','Switzerland','Syrian Arab Republic','Taiwan','Tajikistan','Tanzania, United Republic of','Thailand','Togo','Tokelau','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Turks and Caicos Islands','Tuvalu','Uganda',
-		'Ukraine','United Arab Emirates','United Kingdom (Great Britain)','United States','United States Virgin Islands','Uruguay','Uzbekistan','Vanuatu','Vatican City State','Venezuela','Vietnam','Wallis And Futuna Islands','Western Sahara','Yemen','Zaire','Zambia'
-	);			
-	$arrText = array(
-		'Afghanistan','Albania','Algeria','American Samoa','Andorra','Angola','Anguilla','Antarctica','Antigua and Barbuda','Argentina','Armenia','Aruba','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus',
-		'Belgium','Belize','Benin','Bermuda','Bhutan','Bolivia','Bosnia and Herzegowina','Botswana','Bouvet Island','Brazil','British Indian Ocean Territory','British Virgin Islands','Brunei Darussalam','Bulgaria','Burkina Faso','Burundi','Cambodia','Cameroon','Canada','Cape Verde',
-		'Cayman Islands','Central African Republic','Chad','Chile','China','Christmas Island','Cocos (Keeling) Islands','Colombia','Comoros','Congo','Cook Islands','Costa Rica','Cote D\'ivoire','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica',
-		'Dominican Republic','East Timor','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Ethiopia','Falkland Islands (Malvinas)','Faroe Islands','Fiji','Finland','France','France, Metropolitan','French Guiana','French Polynesia','French Southern Territories','Gabon','Gambia',
-		'Georgia','Germany','Ghana','Gibraltar','Greece','Greenland','Grenada','Guadeloupe','Guam','Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Heard and McDonald Islands','Honduras','Hong Kong','Hungary','Iceland','India',
-		'Indonesia','Iraq','Ireland','Islamic Republic of Iran','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Korea','Korea, Republic of','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho',
-		'Liberia','Libyan Arab Jamahiriya','Liechtenstein','Lithuania','Luxembourg','Macau','Macedonia','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Martinique','Mauritania','Mauritius','Mayotte','Mexico','Micronesia',
-		'Moldova, Republic of','Monaco','Mongolia','Montserrat','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','Netherlands Antilles','New Caledonia','New Zealand','Nicaragua','Niger','Nigeria','Niue','Norfolk Island','Northern Mariana Islands',
-		'Norway','Oman','Pakistan','Palau','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Pitcairn','Poland','Portugal','Puerto Rico','Qatar','Reunion','Romania','Russian Federation','Rwanda','Saint Lucia','Samoa',
-		'San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia and Montenegro','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','Spain','Sri Lanka','St. Helena','St. Kitts and Nevis','St. Pierre and Miquelon','St. Vincent and the Grenadines','Sudan',
-		'Suriname','Svalbard and Jan Mayen Islands','Swaziland','Sweden','Switzerland','Syrian Arab Republic','Taiwan','Tajikistan','Tanzania, United Republic of','Thailand','Togo','Tokelau','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Turks and Caicos Islands','Tuvalu','Uganda',
-		'Ukraine','United Arab Emirates','United Kingdom (Great Britain)','United States','United States Virgin Islands','Uruguay','Uzbekistan','Vanuatu','Vatican City State','Venezuela','Vietnam','Wallis And Futuna Islands','Western Sahara','Yemen','Zaire','Zambia'
-	);
-	$firstValue = $lang=="vn"?"[Ch&#7885;n qu&#7889;c gia]":"[Select country]";
-	$out = '';
-	$out .= '<select name="'.$name.'" id="'.$name.'" class="'.$class.'">';
-	$out .= '<option value="-1">'.$firstValue.'</option>';
-	for($i=0; $i<count($arrValue); $i++){
-		$selected = $arrValue[$i] == $index ? 'selected' : '';
-		$out .= '<option value="'.$arrValue[$i].'" '.$selected.'>'.$arrText[$i].'</option>';
-	}
-	$out .= '</select>';
-	return $out;
+function getArray($query) {
+    global $conn;
+    $result = mysqli_query($conn, $query);
+    $ret = array();
+    while ($row = mysqli_fetch_assoc($result)) {
+        $ret[] = $row;
+    }
+    return $ret;
+}
+
+function isHaveChild($table, $id) {
+    global $conn;
+    $result = mysqli_query($conn, "SELECT * FROM $table WHERE parent=$id");
+    return mysqli_num_rows($result) > 0;
 }
 
 //************************************************************************************************************
-//***************************************** SQL Query function ***********************************************
-function insert($table,$fields_arr){
-	global $conn;
-	if(!$conn){return false;}
-	$strfields="";
-	$strvalues="";
-	list($key, $val) = each($fields_arr);
-	if(is_string($key)){
-		$strfields = " ($key";
-		$strvalues= $val;
-		while(list($key, $val) = each($fields_arr)){
-			$strfields.= ", $key";
-			$strvalues.= ",".$val;
-		}
-			$strfields.=")";
-	}else{
-		$strvalues=$fields_arr[0];
-		for($i=1;$i<(count($fields_arr));$i++){
-			$strvalues .= ", $fields_arr[$i]";
-		}
-	}
-	
-	$query = "INSERT INTO $table $strfields VALUES ($strvalues)";
-	//echo $query;
-	return mysql_query($query, $conn);
+//****************************************** combo out HTML **************************************************
+function comboLanguage($name, $langSelected, $class) {
+    global $arrLanguage;
+    $name = $name != '' ? $name : 'cmbLang';
+    $out = '<select size="1" name="' . $name . '" class="' . $class . '">';
+    foreach ($arrLanguage as $lang) {
+        $selected = $lang[0] == $langSelected ? 'selected' : '';
+        $out .= '<option value="' . $lang[0] . '" ' . $selected . '>' . $lang[1] . '</option>';
+    }
+    $out .= '</select>';
+    return $out;
 }
 
-function update($table,$fields_arr,$where) {
-	global $conn;
-	if (!$conn) { return false; }
-	list($key, $val) = each($fields_arr);
-	$strset=" $key = $val";
-	while(list($key, $val) = each($fields_arr)){
-		$strset .= ", $key = $val";
-	}
-	$query = "UPDATE $table SET $strset WHERE $where"; 
-	$result = mysql_query($query, $conn);
-	return !$result?false:true;
+// $name            : name of combobox
+// $arrSource  : function return array ; example : getListCategory(), getListNewsCategory()
+// $index           : paramater selected
+// $all             : $all==1 => show [Tất cả]
+function comboCategory($name, $arrSource, $class, $index, $all) {
+    $name = $name != '' ? $name : 'cmbParent';
+    if (!$arrSource)
+	return '';
+    
+    $out = '<select size="1" name="' . $name . '" class="' . $class . '">';
+    
+    if ($all == 1) {
+        $out .= '<option value="0">[Tất cả]</option>';
+    }
+    
+    foreach ($arrSource as $item) {
+        $selected = $item[0] == $index ? 'selected' : '';
+        $out .= '<option value="' . $item[0] . '" ' . $selected . '>' . $item[1] . '</option>';
+    }
+    
+    $out .= '</select>';
+    return $out;
 }
 
-function delete_rows($table,$fields_arr,$where_ext="") {
-	global $conn;
-	if (!$conn) { return false; }
-	if(count($fields_arr)>0){
-		list($key, $val) = each($fields_arr);
-		$strwhere=" $key = $val";
-		while(list($key, $val) = each($fields_arr)){
-			$strwhere .= "OR $key = $val";
-		}
-	}
-	
-	$query = "DELETE FROM $table WHERE $strwhere $where_ext";      
-	#echo $query;#exit;
-	$result = mysql_query($query, $conn);
-	if (!$result) {return false;}
-	return true;
-}
 //************************************************************************************************************
-//************************************************ MAIL ******************************************************
-function check_mail($email){
-	if(!eregi("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$", $email)) return false;
-	return true;
+//****************************************** Ghi log vào file *************************************************
+function logToFile($message) {
+    $logFile = 'log.txt'; // Đường dẫn đến file log
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
 }
 
-function send_mail($from,$to,$subject,$body){
-	return mail_smtp($from,$to,$subject,$body,1);
-}
-
-function mail_smtp($from,$to,$subject,$body,$html=0){
-	require_once("smtp.php");
-
-	$smtp=new smtp_class;
-
-	$smtp->host_name="localhost";       /* Change this variable to the address of the SMTP server to relay, like "smtp.myisp.com" */
-	$smtp->localhost="localhost";       /* Your computer address */
-	$smtp->direct_delivery=0;           /* Set to 1 to deliver directly to the recepient SMTP server */
-	$smtp->timeout=10;                  /* Set to the number of seconds wait for a successful connection to the SMTP server */
-	$smtp->data_timeout=0;              /* Set to the number seconds wait for sending or retrieving data from the SMTP server.
-	                                       Set to 0 to use the same defined in the timeout variable */
-	$smtp->debug=0;                     /* Set to 1 to output the communication with the SMTP server */
-	$smtp->html_debug=1;                /* Set to 1 to format the debug output as HTML */
-	$smtp->pop3_auth_host="vietnextco.com.vn";           /* Set to the POP3 authentication host if your SMTP server requires prior POP3 authentication */
-	$smtp->user="client@vietnextco.com.vn";                     /* Set to the user name if the server requires authetication */
-	$smtp->realm="";                    /* Set to the authetication realm, usually the authentication user e-mail domain */
-	$smtp->password="degoimail";                 /* Set to the authetication password */
-	$smtp->workstation="";              /* Workstation name for NTLM authentication */
-	$smtp->authentication_mechanism=""; /* Specify a SASL authentication method like LOGIN, PLAIN, CRAM-MD5, NTLM, etc..
-	                                       Leave it empty to make the class negotiate if necessary */
-
-	if($smtp->direct_delivery){
-		if(!function_exists("GetMXRR")){
-			$_NAMESERVERS=array();
-			include("getmxrr.php");
-		}
-	}
-
-	$header="";
-	if ($html==0)
-		$header = array(
-			"From: $from",
-			"To: $to",
-			"Subject: $subject",
-			"Date: ".strftime("%a, %d %b %Y %H:%M:%S %Z")
-		);
-	else
-		$header = array(
-			"MIME-Version: 1.0",
-			"Content-type: text/html; charset=iso-8859-1",
-			"From: $from",
-			"To: $to",
-			"Subject: $subject",
-			"Date: ".strftime("%a, %d %b %Y %H:%M:%S %Z")
-		);
-	$ret = $smtp->SendMessage($from,array($to),$header,$body);
-	return $ret;
-}
 //************************************************************************************************************
+//****************************************** Kiểm tra đăng nhập ***********************************************
+function checkLogin() {
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: login.php');
+        exit();
+    }
+}
+
 //************************************************************************************************************
-?>
+//****************************************** Hàm thoát đăng nhập **********************************************
+function logout() {
+    session_start();
+    session_unset();
+    session_destroy();
+    header('Location: login.php');
+    exit();
+}
+
+//************************************************************************************************************
+//****************************************** Hàm gửi email **************************************************
+function sendEmail($to, $subject, $message, $headers = '') {
+    // Sử dụng hàm mail để gửi email
+    return mail($to, $subject, $message, $headers);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm kiểm tra email hợp lệ ***************************************
+function isValidEmail($email) {
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo mã ngẫu nhiên ********************************************
+function generateRandomString($length = 10) {
+    return bin2hex(random_bytes($length / 2));
+}
+
+//************************************************************************************************************
+//****************************************** Hàm mã hóa mật khẩu **********************************************
+function hashPassword($password) {
+    return password_hash($password, PASSWORD_BCRYPT);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm kiểm tra mật khẩu *******************************************
+function verifyPassword($password, $hashedPassword) {
+    return password_verify($password, $hashedPassword);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm chuyển đổi định dạng ngày ************************************
+function formatDate($date, $format = 'd/m/Y') {
+    return date($format, strtotime($date));
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo chuỗi truy vấn SQL ***************************************
+function buildQuery($table, $fields, $where = '', $orderBy = '', $limit = '') {
+    $query = "SELECT " . implode(',', $fields) . " FROM " . $table;
+    if ($where != '') {
+        $query .= " WHERE " . $where;
+    }
+    if ($orderBy != '') {
+        $query .= " ORDER BY " . $orderBy;
+    }
+    if ($limit != '') {
+        $query .= " LIMIT " . $limit;
+    }
+    return $query;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm thực thi truy vấn *********************************************
+function executeQuery($query) {
+    global $conn;
+    return mysqli_query($conn, $query);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm lấy dữ liệu từ cơ sở dữ liệu *********************************
+function fetchData($query) {
+    global $conn;
+    $result = mysqli_query($conn, $query);
+    $data = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $data[] = $row;
+    }
+    return $data;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm kiểm tra tồn tại bản ghi *************************************
+function recordExists($table, $where) {
+    global $conn;
+    $query = "SELECT COUNT(*) as count FROM $table WHERE $where";
+    $result = mysqli_query($conn, $query);
+    $row = mysqli_fetch_assoc($result);
+    return $row['count'] > 0;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm xóa bản ghi ***********************************************
+function deleteRecord($table, $where) {
+    global $conn;
+    $query = "DELETE FROM $table WHERE $where";
+    return mysqli_query($conn, $query);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm cập nhật bản ghi *********************************************
+function updateRecord($table, $data, $where) {
+    global $conn;
+    
+    // Kiểm tra xem mảng dữ liệu có rỗng không
+    if (empty($data) || empty($where)) {
+        return false; // Trả về false nếu không có dữ liệu hoặc điều kiện WHERE
+    }
+
+    $set = [];
+    foreach ($data as $key => $value) {
+        // Sử dụng mysqli_real_escape_string để bảo vệ khỏi SQL Injection
+        $set[] = "$key='" . mysqli_real_escape_string($conn, $value) . "'";
+    }
+
+    // Tạo câu truy vấn SQL
+    $query = "UPDATE $table SET " . implode(', ', $set) . " WHERE $where";
+
+    // Thực hiện truy vấn và kiểm tra kết quả
+    if (mysqli_query($conn, $query)) {
+        return true; // Trả về true nếu cập nhật thành công
+    } else {
+        // Xử lý lỗi nếu có
+        handleError(mysqli_error($conn));
+        return false; // Trả về false nếu có lỗi
+    }
+}
+
+//************************************************************************************************************
+//****************************************** Hàm thêm bản ghi ***********************************************
+function insertRecord($table, $data) {
+    global $conn;
+    $fields = implode(',', array_keys($data));
+    $values = implode(',', array_map(function($value) use ($conn) {
+        return "'" . mysqli_real_escape_string($conn, $value) . "'";
+    }, array_values($data)));
+    
+    $query = "INSERT INTO $table ($fields) VALUES ($values)";
+    return mysqli_query($conn, $query);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm lấy tất cả bản ghi ******************************************
+function getAllRecords($table, $where = '1=1', $orderBy = '', $limit = '') {
+    $query = "SELECT * FROM $table WHERE $where";
+    if ($orderBy != '') {
+        $query .= " ORDER BY $orderBy";
+    }
+    if ($limit != '') {
+        $query .= " LIMIT $limit";
+    }
+    return fetchData($query);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm lấy bản ghi theo ID *****************************************
+function getRecordById($table, $id) {
+    return getRecord($table, "id = $id");
+}
+
+//************************************************************************************************************
+//****************************************** Hàm lấy danh sách các bảng trong cơ sở dữ liệu *****************
+function getTables() {
+    global $conn;
+    $result = mysqli_query($conn, "SHOW TABLES");
+    $tables = [];
+    while ($row = mysqli_fetch_array($result)) {
+        $tables[] = $row[0];
+    }
+    return $tables;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm thực hiện truy vấn và trả về số dòng bị ảnh hưởng ***********
+function executeAndGetAffectedRows($query) {
+    global $conn;
+    mysqli_query($conn, $query);
+    return mysqli_affected_rows($conn);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm đóng kết nối cơ sở dữ liệu ************************************
+function closeConnection() {
+    global $conn;
+    mysqli_close($conn);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm khởi tạo kết nối cơ sở dữ liệu *******************************
+function createConnection($host, $user, $password, $database) {
+    global $conn;
+    $conn = mysqli_connect($host, $user, $password, $database);
+    if (!$conn) {
+        die("Kết nối thất bại: " . mysqli_connect_error());
+    }
+}
+
+//************************************************************************************************************
+//****************************************** Hàm lấy thông tin cấu hình ***************************************
+function getConfig($key) {
+    // Giả sử bạn có một mảng cấu hình
+    $config = [
+        'db_host' => 'localhost',
+        'db_user' => 'root',
+        'db_pass' => '',
+        'db_name' => 'your_database',
+    ];
+    return isset($config[$key]) ? $config[$key] : null;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm khởi tạo ứng dụng ********************************************
+function initApp() {
+    $host = getConfig('db_host');
+    $user = getConfig('db_user');
+    $pass = getConfig('db_pass');
+    $db = getConfig('db_name');
+    createConnection($host, $user, $pass, $db);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm khởi động ứng dụng ********************************************
+initApp();
+
+//************************************************************************************************************
+//****************************************** Hàm xử lý lỗi ***********************************************
+function handleError($error) {
+    // Ghi lỗi vào file log
+    logToFile($error);
+    // Hiển thị thông báo lỗi cho người dùng (có thể điều chỉnh theo yêu cầu)
+    echo "Đã xảy ra lỗi: " . htmlspecialchars($error);
+}
+
+//************************************************************************************************************
+//****************************************** Hàm gửi thông báo đến người dùng *******************************
+function sendNotification($message) {
+    // Bạn có thể sử dụng thư viện gửi email hoặc thông báo khác tại đây
+    echo "<script>alert('" . addslashes($message) . "');</script>";
+}
+
+//************************************************************************************************************
+//****************************************** Hàm kiểm tra quyền truy cập *************************************
+function checkPermission($requiredRole) {
+    if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] < $requiredRole) {
+        header('Location: unauthorized.php');
+        exit();
+    }
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo menu động *********************************************
+function createMenu($items) {
+    $menu = '<ul>';
+    foreach ($items as $item) {
+        $menu .= '<li><a href="' . $item['link'] . '">' . $item['name'] . '</a></li>';
+    }
+    $menu .= '</ul>';
+    return $menu;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo breadcrumb *********************************************
+function createBreadcrumb($items) {
+    $breadcrumb = '<nav aria-label="breadcrumb"><ol class="breadcrumb">';
+    foreach ($items as $item) {
+        $breadcrumb .= '<li class="breadcrumb-item"><a href="' . $item['link'] . '">' . $item['name'] . '</a></li>';
+    }
+    $breadcrumb .= '</ol></nav>';
+    return $breadcrumb;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo thẻ HTML ***********************************************
+function createHtmlTag($tag, $content, $attributes = []) {
+    $attrString = '';
+    foreach ($attributes as $key => $value) {
+        $attrString .= "$key=\"" . htmlspecialchars($value) . "\" ";
+    }
+    return "<$tag $attrString>$content</$tag>";
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo bảng HTML **********************************************
+function createHtmlTable($data) {
+    if (empty($data)) return '<p>Không có dữ liệu để hiển thị.</p>';
+
+    $table = '<table class="table">';
+    $table .= '<thead><tr>';
+    foreach (array_keys($data[0]) as $header) {
+        $table .= '<th>' . htmlspecialchars($header) . '</th>';
+    }
+    $table .= '</tr></thead><tbody>';
+
+    foreach ($data as $row) {
+        $table .= '<tr>';
+        foreach ($row as $cell) {
+            $table .= '<td>' . htmlspecialchars($cell) . '</td>';
+        }
+        $table .= '</tr>';
+    }
+    
+    $table .= '</tbody></table>';
+    return $table;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm tạo trang phân trang ****************************************
+function createPagination($currentPage, $totalPages, $baseUrl) {
+    $pagination = '<nav aria-label="Page navigation"><ul class="pagination">';
+    
+    for ($i = 1; $i <= $totalPages; $i++) {
+        $active = ($i == $currentPage) ? 'active' : '';
+        $pagination .= '<li class="' . $active . '"><a href="' . $baseUrl . '?page=' . $i . '">' . $i . '</a></li>';
+    }
+    
+    $pagination .= '</ul></nav>';
+    return $pagination;
+}
+
+//************************************************************************************************************
+//****************************************** Hàm xử lý upload file *******************************************
+function uploadFile($file, $targetDir) {
+    $targetFile = $targetDir . basename($file["name"]);
+    $uploadOk = 1;
+    $fileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
+
+    // Kiểm tra xem file có phải là hình ảnh không
+    if (isset($_POST["submit"])) {
+        $check = getimagesize($file["tmp_name"]);
+        if ($check !== false) {
+            echo "File là hình ảnh - " . $check["mime"] . ".";
+            $uploadOk = 1;
+        } else {
+            echo "File không phải là hình ảnh.";
+            $uploadOk = 0;
+        }
+    }
+
+    // Kiểm tra xem file đã tồn tại chưa
+    if (file_exists($targetFile)) {
+        echo "Xin lỗi, file đã tồn tại.";
+        $uploadOk = 0;
+    }
+
+    // Kiểm tra kích thước file
+    if ($file["size"] > 500000) { // Giới hạn kích thước file là 500KB
+        echo "Xin lỗi, file của bạn quá lớn.";
+        $uploadOk = 0;
+    }
+
+    // Chỉ cho phép một số định dạng file nhất định
+    if (!in_array($fileType, ['jpg', 'jpeg', 'png', 'gif'])) {
+        echo "Xin lỗi, chỉ cho phép file JPG, JPEG, PNG và GIF.";
+        $uploadOk = 0;
+    }
+
+    // Kiểm tra xem $uploadOk có bằng 0 không
+    if ($uploadOk == 0) {
+        echo "Xin lỗi, file của bạn không được tải lên.";
+    } else {
+        if (move_uploaded_file($file["tmp_name"], $targetFile)) {
+            echo "File " . htmlspecialchars(basename($file["name"])) . " đã được tải lên.";
+        } else {
+            echo "Xin lỗi, đã xảy ra lỗi khi tải file của bạn lên.";
+        }
+    }
+}
